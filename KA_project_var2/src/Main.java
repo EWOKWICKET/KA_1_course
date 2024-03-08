@@ -41,7 +41,7 @@ public class Main {
         System.out.println(Arrays.toString(median).replace("[", "").replace("]", " ").replace(",", ""));
 
         double avg = average(sortedNumArray);
-        System.out.println("Median: " + avg);
+        System.out.println("Average: " + avg);
     }
 
     public static void addToArray(int num) {
