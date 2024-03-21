@@ -10,7 +10,7 @@
             "run": [
                 "TASM ${file}",
                 "TLINK ${filename}",
-                ">${filename} < test.in"
+                ">V2TEST ${filename}"
             ],
             "debug": [
                 "TASM /zi ${file}",
