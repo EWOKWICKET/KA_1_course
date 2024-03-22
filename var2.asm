@@ -272,21 +272,69 @@ bubbleSort ENDP
 ;prints median and average
 medianAndAverage PROC
     pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
-    lea si, numbers
-    mov ax, 0
-    mov cx, numbersAmount
-    sumCollecting:
-        cmp cx, 0
-        je average
-        mov dx, 0
-        mov bx, [si]
-        add si, 2
-        add ax, bx
-        adc dx, 0
-        dec cx
-        jmp sumCollecting
+
+    median:
+        lea si, numbers
+        mov ax, numbersAmount
+        mov bx, 2
+        div bx
+        mov bx, 2
+        mul bx
+        add si, ax
+        mov ax, [si]
+        print_median:
+            mov bx, 10
+            mov decimalHolder, 0
+
+            median_loop:
+                mov dx, 0
+                div bx
+
+                mov decimalHolder, ax
+                mov ax, 0
+                mov ah, 02h
+                add dx, '0'
+                int 21h
+                mov ax, decimalHolder
+                cmp ax, 0
+                je end_median_loop
+
+                mov dx, ax
+                mov ax, bx
+                mov bx, 10
+                mul bx
+                mov bx, ax
+                mov ax, dx
+                jmp median_loop
+
+            end_median_loop:
+                mov ax, 0
+                mov ah, 02h
+                mov dx, 13
+                int 21h
+                mov dl, 10
+                int 21h
+                mov ax, 0
+                mov dx, 0
+                jmp average   
+
 
     average:
+        lea si, numbers
+        mov ax, 0
+        mov cx, numbersAmount
+        sumCollecting:
+            cmp cx, 0
+            je find_average
+            mov dx, 0
+            mov bx, [si]
+            add si, 2
+            add ax, bx
+            adc dx, 0
+            dec cx
+            jmp sumCollecting
+
+    find_average:
         mov bx, numbersAmount
         div bx
 
@@ -318,10 +366,13 @@ medianAndAverage PROC
             end_average_loop:
                 mov ax, 0
                 mov dx, 0
-
-    median:
-
-            
+                mov ax, 0
+                mov ah, 02h
+                mov dx, 13
+                int 21h
+                mov dl, 10
+                int 21h
+                jmp end_median_and_average            
 
     end_median_and_average:
         push returnIndex
