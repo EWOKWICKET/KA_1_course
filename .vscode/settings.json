@@ -57,5 +57,6 @@
                 "msdos player"
             ]
         }
-    }
+    },
+    "masmtasm.ASM.emulator": "dosbox-x"
 }

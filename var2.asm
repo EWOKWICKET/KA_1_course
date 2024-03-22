@@ -1,12 +1,14 @@
 .model small
 .stack 1000h
+.386
 
 .data
 numbers dw 1000 dup(?)          ;масив із числами
-numbersAmount dw ?        
+numbersAmount dw ?              ;кількість чисел у масиві
+sum dd 0                        ;сума усіх чисел
 digitsRead dw 0                 ;кількість цифр у числі
 numsRead dw 0                   ;кількість зчитаних з файлу чисел
-numsConvertedToDecimal dw 0     ;кількість жесяткових чисел
+numsConvertedToDecimal dw 0     ;кількість десяткових чисел
 numsConvertedToBinary dw 0      ;кількість двійкових чисел
 decimalHolder dw 0D              ;змінна, що матиме повне конвертоване десяткове число
 char db  0                      ;містить зчитаний символ
@@ -173,6 +175,7 @@ convert_to_decimal PROC
             mov ax, decimalHolder
             mov [si], ax
             sub si, 2
+            ; add sum, eax
             mov decimalHolder, 0D
             ; inc numbersAmount
             inc numsConvertedToDecimal
@@ -269,10 +272,60 @@ bubbleSort ENDP
 ;prints median and average
 medianAndAverage PROC
     pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
+    lea si, numbers
+    mov ax, 0
+    mov cx, numbersAmount
+    sumCollecting:
+        cmp cx, 0
+        je average
+        mov dx, 0
+        mov bx, [si]
+        add si, 2
+        add ax, bx
+        adc dx, 0
+        dec cx
+        jmp sumCollecting
 
+    average:
+        mov bx, numbersAmount
+        div bx
 
-    push returnIndex
-    ret
+        print_average:
+            mov bx, 10
+            mov decimalHolder, 0
+
+            average_loop:
+                mov dx, 0
+                div bx
+
+                mov decimalHolder, ax
+                mov ax, 0
+                mov ah, 02h
+                add dx, '0'
+                int 21h
+                mov ax, decimalHolder
+                cmp ax, 0
+                je end_average_loop
+
+                mov dx, ax
+                mov ax, bx
+                mov bx, 10
+                mul bx
+                mov bx, ax
+                mov ax, dx
+                jmp average_loop
+
+            end_average_loop:
+                mov ax, 0
+                mov dx, 0
+
+    median:
+
+            
+
+    end_median_and_average:
+        push returnIndex
+        ret
 medianAndAverage ENDP
 
 ;завершення програми
