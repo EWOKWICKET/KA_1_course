@@ -26,6 +26,8 @@ main PROC
     call read_loop
     call convert_to_decimal
     call convert_to_binary
+    call bubbleSort
+    call medianAndAverage
     
     jmp end_program
 
@@ -125,6 +127,7 @@ convert_to_decimal PROC
             convert_char:
                 mul bx
                 add decimalHolder, ax           ;додаю число домножене на певну степінь 10 до змінної, в якій лежатиме повне число
+                
                 mov ax, bx
                 mov bx, 10
                 mul bx
@@ -153,7 +156,7 @@ convert_to_decimal PROC
         ;кінець конвертації числа і його занесення в масив
         end_convert_char_loop:
             mov ax, decimalHolder
-            mov [numbers + si], ax
+            mov [si], ax
             sub si, 2
             mov decimalHolder, 0D
             ; inc numbersAmount
@@ -173,7 +176,7 @@ convert_to_binary PROC
     get_binary_loop:
         cmp numsConvertedToDecimal, 0
         je end_get_binary_loop
-        mov ax, [numbers + si]
+        mov ax, [si]
         add si, 2                   ;збільшення індексу для робоит з масивом
         mov digitsRead, 0D          
         mov bx, 2                   ;дільник
@@ -195,27 +198,27 @@ convert_to_binary PROC
                 additional_code:
                     cmp cx, 0
                     je remainders_gathering
-                    mov ah, 02h
-                    mov dx, '0'
-                    int 21h
+                    ; mov ah, 02h
+                    ; mov dx, '0'
+                    ; int 21h
                     dec cx
                     jmp additional_code
                 ;основне число
                 remainders_gathering:
                     cmp digitsRead, 0
                     je end_convert_digit_loop
-                    pop dx
-                    mov ah, 02h
-                    add dx, '0'
-                    int 21h
+                    ; pop dx
+                    ; mov ah, 02h
+                    ; add dx, '0'
+                    ; int 21h
                     dec digitsRead
                     jmp remainders_gathering
 
         ;розділення між числами
         end_convert_digit_loop:
-            mov ah, 02h
-            mov dx, ' '
-            int 21h
+            ; mov ah, 02h
+            ; mov dx, ' '
+            ; int 21h
             inc numsConvertedToBinary
             dec numsConvertedToDecimal 
             jmp get_binary_loop
@@ -225,26 +228,37 @@ convert_to_binary PROC
         ret    
 convert_to_binary ENDP
 
-; ;sorts the array
-; bubbleSort PROC
-;     mov cx, word ptr count
-;     dec cx  ; count-1
-;     outerLoop:
-;         push cx
-;         lea si, array
-;     innerLoop:
-;         mov ax, [si]
-;         cmp ax, [si+2]
-;         jl nextStep
-;         xchg [si+2], ax
-;         mov [si], ax
-;     nextStep:
-;         add si, 2
-;         loop innerLoop
-;         pop cx
-;         loop outerLoop
-; bubbleSort ENDP
+;sorts the array
+bubbleSort PROC
+    pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
+    mov cx, numbersAmount
+    dec cx  ; count-1
+    outerLoop:
+        push cx
+        lea si, numbers
+    innerLoop:
+        mov ax, [si]
+        cmp ax, [si+2]
+        jl nextStep
+        xchg [si+2], ax
+        mov [si], ax
+    nextStep:
+        add si, 2
+        loop innerLoop
+        pop cx
+        loop outerLoop
+    push returnIndex
+    ret
+bubbleSort ENDP
 
+;prints median and average
+medianAndAverage PROC
+    pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
+
+
+    push returnIndex
+    ret
+medianAndAverage ENDP
 
 ;завершення програми
 end_program PROC
