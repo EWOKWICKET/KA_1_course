@@ -3,7 +3,7 @@
 
 .data
 numbers dw 1000 dup(?)          ;масив із числами
-; numbersAmount dw 0        
+numbersAmount dw ?        
 digitsRead dw 0                 ;кількість цифр у числі
 numsRead dw 0                   ;кількість зчитаних з файлу чисел
 numsConvertedToDecimal dw 0     ;кількість жесяткових чисел
@@ -57,8 +57,8 @@ read_loop PROC
         je read_not_digit
         cmp dl, 0                                       ;EOF?
         je end_of_file
-        ; cmp dl, '-' 
-        ; je negative
+        cmp dl, '-' 
+        je negative
         inc digitsRead
         sub dl, '0'
         push dx
@@ -67,6 +67,11 @@ read_loop PROC
     read_not_digit:
         cmp digitsRead, 0
         jne end_of_num
+        jmp read_file
+
+    negative:
+        push dx
+        inc digitsRead
         jmp read_file
     ;EOF found
     end_of_file:
@@ -93,6 +98,8 @@ read_loop ENDP
 ;converts each num in stack into decimal and pushes them to stack
 convert_to_decimal PROC
     pop returnIndex                                     ;зберіг ip повернення, бо буду працювати із стеком
+    mov ax, numsRead
+    mov numbersAmount, ax
     ;переходжу вперед по масиву, щоб зберегти порядок елементів
     lea si, numbers
     mov ax, numsRead
@@ -111,8 +118,8 @@ convert_to_decimal PROC
         mov bx, 1
         ;конвертує одне число
         convert_char_loop:
-            cmp cx, 0
-            je end_convert_char_loop
+            cmp cx, 1
+            jbe check_if_negative
             pop ax
             ;конвертує цифру числа
             convert_char:
@@ -124,6 +131,24 @@ convert_to_decimal PROC
                 mov bx, ax
                 dec cx
                 jmp convert_char_loop
+            ; перевіряє, чи буде мінус. Якщо так, то множить на -1
+            check_if_negative:
+                cmp cx, 0
+                je end_convert_char_loop
+                pop ax
+                cmp ax, '-'
+                je negate
+                jmp convert_char
+            ; множить на -1
+            negate:
+                dec cx
+                mov ax, decimalHolder 
+                cbw
+                xor ax, 0FFFFh
+                add ax, 01B
+                mov decimalHolder, ax
+                jmp end_convert_char_loop
+
 
         ;кінець конвертації числа і його занесення в масив
         end_convert_char_loop:
@@ -131,6 +156,7 @@ convert_to_decimal PROC
             mov [numbers + si], ax
             sub si, 2
             mov decimalHolder, 0D
+            ; inc numbersAmount
             inc numsConvertedToDecimal
             dec numsRead 
             jmp get_decimal_loop
@@ -160,7 +186,7 @@ convert_to_binary PROC
             cmp ax, 0               ;перевіряю частку
             je full_convert
             jmp convert_digit_loop
-            ;число в доповняльному коді(аоки що тільки додатні)
+            ;число в доповняльному коді(поки що тільки додатні)
             full_convert:
                 mov bx, digitsRead
                 mov cx, 16
@@ -198,6 +224,26 @@ convert_to_binary PROC
         push returnIndex
         ret    
 convert_to_binary ENDP
+
+; ;sorts the array
+; bubbleSort PROC
+;     mov cx, word ptr count
+;     dec cx  ; count-1
+;     outerLoop:
+;         push cx
+;         lea si, array
+;     innerLoop:
+;         mov ax, [si]
+;         cmp ax, [si+2]
+;         jl nextStep
+;         xchg [si+2], ax
+;         mov [si], ax
+;     nextStep:
+;         add si, 2
+;         loop innerLoop
+;         pop cx
+;         loop outerLoop
+; bubbleSort ENDP
 
 
 ;завершення програми
