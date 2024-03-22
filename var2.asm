@@ -1,5 +1,5 @@
 .model small
-.stack 100
+.stack 1000h
 
 .data
 numbers dw 1000 dup(?)          ;масив із числами
@@ -61,6 +61,8 @@ read_loop PROC
         je end_of_file
         cmp dl, '-' 
         je negative
+        cmp digitsRead, 6
+        je read_file
         inc digitsRead
         sub dl, '0'
         push dx
@@ -120,20 +122,34 @@ convert_to_decimal PROC
         mov bx, 1
         ;конвертує одне число
         convert_char_loop:
+
             cmp cx, 1
             jbe check_if_negative
+
             pop ax
             ;конвертує цифру числа
             convert_char:
                 mul bx
                 add decimalHolder, ax           ;додаю число домножене на певну степінь 10 до змінної, в якій лежатиме повне число
-                
+                jo limit_reached                ; sets number 7FFFh if too big for 16-bit
                 mov ax, bx
                 mov bx, 10
                 mul bx
                 mov bx, ax
                 dec cx
                 jmp convert_char_loop
+
+            limit_reached:
+                mov decimalHolder, 7FFFh
+                skip:
+                    cmp cx, 0
+                    je end_convert_char_loop
+                    pop ax
+                    cmp ax, '-'
+                    je negate
+                    dec cx
+                    jmp skip
+
             ; перевіряє, чи буде мінус. Якщо так, то множить на -1
             check_if_negative:
                 cmp cx, 0
@@ -146,7 +162,6 @@ convert_to_decimal PROC
             negate:
                 dec cx
                 mov ax, decimalHolder 
-                cbw
                 xor ax, 0FFFFh
                 add ax, 01B
                 mov decimalHolder, ax
