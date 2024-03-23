@@ -1,16 +1,14 @@
 .model small
 .stack 1000h
-.386
 
 .data
 numbers dw 1000 dup(?)          ;масив із числами
 numbersAmount dw ?              ;кількість чисел у масиві
-sum dd 0                        ;сума усіх чисел
 digitsRead dw 0                 ;кількість цифр у числі
 numsRead dw 0                   ;кількість зчитаних з файлу чисел
-numsConvertedToDecimal dw 0     ;кількість десяткових чисел
-numsConvertedToBinary dw 0      ;кількість двійкових чисел
-decimalHolder dw 0D              ;змінна, що матиме повне конвертоване десяткове число
+numsConvertedToDecimal dw 0     ;кількість десяткових чисел(для циклу)
+numsConvertedToBinary dw 0      ;кількість двійкових чисел(для циклу)
+decimalHolder dw 0D             ;змінна, що матиме повне конвертоване десяткове число
 char db  0                      ;містить зчитаний символ
 returnIndex dw 0                ;змінна для утримування індексу для повернення до місця виклику функції
 
@@ -25,32 +23,32 @@ main PROC
     mov cx, 0
     mov dx, 0
 
-    call read_loop
-    call convert_to_decimal
-    call convert_to_binary
-    call bubbleSort
-    call medianAndAverage
+    call read_loop                      ;зчитує символи
+    call convert_to_decimal             ;конвертує зчитані символи в десяткові числа. Слідкує, щоб не виходили за межі 16 бітів зі знаковим бітом
+    ; call print_binary                 ;виводить зчитані числа у двійковому доповняльному 16-бітному коді
+    call bubbleSort                     ;сортує масив чисел
+    call medianAndAverage               ;виводить медіану і сережнє арифметичне
     
     jmp end_program
 
 main ENDP
 
 
-;reads and prints file, preparing for converting(digits of num and amount of digits are in stack)
+;зчитує числа(за потреби виводить), і закидує в стек для подальшого конвертування(цифри числа і кількість цифр у числі)
 read_loop PROC
     pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
     read_file:
         mov ah, 3Fh
         mov bx, 0h                         ; stdin handle
-        mov cx, 1                          ; 1 byte to read
-        lea dx, char                       ; read to ds:dx
+        mov cx, 1                          ; 1 байт для читання
+        lea dx, char                       ; зчитати to ds:dx
         int 21h                        
         cmp ax, 0                          ; EOF?
         jz end_of_file
 
         mov dx, 0
-        ; mov ah, 02h
-        mov dl, char
+        ; mov ah, 02h                      ;виводить цифру
+        mov dl, char                       ;забирає зчитаний символ
         ; int 21h
 
         cmp dl, 13                                      ; LF?
@@ -61,7 +59,7 @@ read_loop PROC
         je read_not_digit
         cmp dl, 0                                       ;EOF?
         je end_of_file
-        cmp dl, '-' 
+        cmp dl, '-'                                     ; -?
         je negative
         cmp digitsRead, 6
         je read_file
@@ -69,17 +67,17 @@ read_loop PROC
         sub dl, '0'
         push dx
         jmp read_file
-    ;якщо прочитана не цифра. Якщо до цього були прочитані цифри, то зупиняє підрахунок цифр у числі
+    ;Прочитана не цифра. Якщо до цього були прочитані цифри, то зупиняє підрахунок цифр у числі
     read_not_digit:
         cmp digitsRead, 0
         jne end_of_num
         jmp read_file
-
+    ;зустрівся мінус
     negative:
         push dx
         inc digitsRead
         jmp read_file
-    ;EOF found
+    ;зустрівся EOF
     end_of_file:
         cmp digitsRead, 0
         jne last_num
@@ -92,7 +90,7 @@ read_loop PROC
         inc numsRead
         jmp read_file
 
-    ;if EOF was met after reading digits
+    ;якщо зустрівся EOF після зчитування числа
     last_num:
         push digitsRead
         mov digitsRead, 0
@@ -101,9 +99,10 @@ read_loop PROC
         ret
 read_loop ENDP
 
-;converts each num in stack into decimal and pushes them to stack
+;конвертує зчитані символи в числа, слідкує за переповненням регістрів. Потім кладе в масив
 convert_to_decimal PROC
     pop returnIndex                                     ;зберіг ip повернення, бо буду працювати із стеком
+    ;записую в змінну кількість зчитаних чисел
     mov ax, numsRead
     mov numbersAmount, ax
     ;переходжу вперед по масиву, щоб зберегти порядок елементів
@@ -128,12 +127,12 @@ convert_to_decimal PROC
             cmp cx, 1
             jbe check_if_negative
 
-            pop ax
+            pop ax                      ;цифра числа
             ;конвертує цифру числа
             convert_char:
                 mul bx
                 add decimalHolder, ax           ;додаю число домножене на певну степінь 10 до змінної, в якій лежатиме повне число
-                jo limit_reached                ; sets number 7FFFh if too big for 16-bit
+                jo limit_reached                ; встановлює значення 7FFFh якщо було переповнення
                 mov ax, bx
                 mov bx, 10
                 mul bx
@@ -175,9 +174,7 @@ convert_to_decimal PROC
             mov ax, decimalHolder
             mov [si], ax
             sub si, 2
-            ; add sum, eax
             mov decimalHolder, 0D
-            ; inc numbersAmount
             inc numsConvertedToDecimal
             dec numsRead 
             jmp get_decimal_loop
@@ -187,15 +184,15 @@ convert_to_decimal PROC
         ret    
 convert_to_decimal ENDP
 
-;converts each decimal in stack into binary and pushes them to stack
-convert_to_binary PROC
+;виводить двійкові значення усіхх зчитаних чисел
+print_binary PROC
     pop returnIndex                         ;зберіг ip повернення, бо буду працювати із стеком
     lea si, numbers
     get_binary_loop:
         cmp numsConvertedToDecimal, 0
         je end_get_binary_loop
         mov ax, [si]
-        add si, 2                   ;збільшення індексу для робоит з масивом
+        add si, 2                   ;збільшення індексу для роботи з наступними елементами масиву
         mov digitsRead, 0D          
         mov bx, 2                   ;дільник
         convert_digit_loop:
@@ -207,7 +204,7 @@ convert_to_binary PROC
             cmp ax, 0               ;перевіряю частку
             je full_convert
             jmp convert_digit_loop
-            ;число в доповняльному коді(поки що тільки додатні)
+            ;число в доповняльному коді
             full_convert:
                 mov bx, digitsRead
                 mov cx, 16
@@ -216,37 +213,44 @@ convert_to_binary PROC
                 additional_code:
                     cmp cx, 0
                     je remainders_gathering
-                    ; mov ah, 02h
-                    ; mov dx, '0'
-                    ; int 21h
+                    mov ah, 02h
+                    mov dx, '0'                     ;виводить доповняльний код(16 біт)
+                    int 21h
                     dec cx
                     jmp additional_code
                 ;основне число
                 remainders_gathering:
                     cmp digitsRead, 0
                     je end_convert_digit_loop
-                    ; pop dx
-                    ; mov ah, 02h
-                    ; add dx, '0'
-                    ; int 21h
+                    pop dx
+                    mov ah, 02h                     ;виводить остачу від ділення
+                    add dx, '0'
+                    int 21h
                     dec digitsRead
                     jmp remainders_gathering
 
         ;розділення між числами
         end_convert_digit_loop:
-            ; mov ah, 02h
-            ; mov dx, ' '
-            ; int 21h
+            mov ah, 02h
+            mov dx, ' '
+            int 21h
             inc numsConvertedToBinary
             dec numsConvertedToDecimal 
             jmp get_binary_loop
 
     end_get_binary_loop:
+        mov ax, 0
+        mov dx, 0
+        mov ah, 02h
+        mov dl, 13
+        int 21h
+        mov dl, 10
+        int 21h
         push returnIndex
         ret    
-convert_to_binary ENDP
+print_binary ENDP
 
-;sorts the array
+;сортує масив
 bubbleSort PROC
     pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
     mov cx, numbersAmount
@@ -257,7 +261,7 @@ bubbleSort PROC
     innerLoop:
         mov ax, [si]
         cmp ax, [si+2]
-        jl nextStep
+        jl nextStep                         ;якщо менше ніж наступний, то наступний крок
         xchg [si+2], ax
         mov [si], ax
     nextStep:
@@ -269,19 +273,23 @@ bubbleSort PROC
     ret
 bubbleSort ENDP
 
-;prints median and average
+;виводить медіану і середнє арифметичне
 medianAndAverage PROC
     pop returnIndex                        ;зберіг ip повернення, бо буду працювати із стеком
+    mov ax, 0
+    mov bx, 0
+    mov dx, 0
 
     median:
+        ;ділю довжину масиву навпіл і множу на 2, щоб дістатсь середини(якщо непарне - середина, якщо парне - правий елемент)
         lea si, numbers
         mov ax, numbersAmount
         mov bx, 2
         div bx
-        mov bx, 2
         mul bx
         add si, ax
         mov ax, [si]
+        ;виводжу медіану
         print_median:
             mov bx, 10
             mov decimalHolder, 0
@@ -323,6 +331,7 @@ medianAndAverage PROC
         lea si, numbers
         mov ax, 0
         mov cx, numbersAmount
+        ;обраховую суму усіх елемнтів масиву
         sumCollecting:
             cmp cx, 0
             je find_average
@@ -337,7 +346,7 @@ medianAndAverage PROC
     find_average:
         mov bx, numbersAmount
         div bx
-
+        ;виводжу середнє арифметичне
         print_average:
             mov bx, 10
             mov decimalHolder, 0
