@@ -1,9 +1,10 @@
 .model small
-.stack 1000h
+.stack 40000
 
 .data
-numbers dw 1000 dup(?)          ;масив із числами
+numbers dw 10000 dup(?)          ;масив із числами
 numbersAmount dw ?              ;кількість чисел у масиві
+negated db 0
 digitsRead dw 0                 ;кількість цифр у числі
 numsRead dw 0                   ;кількість зчитаних з файлу чисел
 numsConvertedToDecimal dw 0     ;кількість десяткових чисел(для циклу)
@@ -128,27 +129,30 @@ convert_to_decimal PROC
             jbe check_if_negative
 
             pop ax                      ;цифра числа
+            dec cx
             ;конвертує цифру числа
             convert_char:
                 mul bx
                 add decimalHolder, ax           ;додаю число домножене на певну степінь 10 до змінної, в якій лежатиме повне число
-                jo limit_reached                ; встановлює значення 7FFFh якщо було переповнення
+                js limit_reached                ;перевіряє, чи число велике для 16-біного знакового уявлення
                 mov ax, bx
                 mov bx, 10
                 mul bx
                 mov bx, ax
-                dec cx
                 jmp convert_char_loop
-
+            ; встановлює значення 7FFFh якщо було переповнення(8000h якщо від'ємне)
             limit_reached:
                 mov decimalHolder, 7FFFh
                 skip:
                     cmp cx, 0
                     je end_convert_char_loop
                     pop ax
-                    cmp ax, '-'
-                    je negate
                     dec cx
+                    cmp ax, '-'
+                    jne skip
+                    mov ax, decimalHolder
+                    xor ax, 0FFFFh
+                    mov decimalHolder, ax
                     jmp skip
 
             ; перевіряє, чи буде мінус. Якщо так, то множить на -1
@@ -156,6 +160,7 @@ convert_to_decimal PROC
                 cmp cx, 0
                 je end_convert_char_loop
                 pop ax
+                dec cx
                 cmp ax, '-'
                 je negate
                 jmp convert_char
@@ -175,6 +180,8 @@ convert_to_decimal PROC
             mov [si], ax
             sub si, 2
             mov decimalHolder, 0D
+            mov ax, 0
+            ; mov cx, 0
             inc numsConvertedToDecimal
             dec numsRead 
             jmp get_decimal_loop
@@ -331,7 +338,7 @@ medianAndAverage PROC
         lea si, numbers
         mov ax, 0
         mov cx, numbersAmount
-        ;обраховую суму усіх елемнтів масиву
+        ;обраховую суму усіх елемнтів масиву        UNDER WORK
         sumCollecting:
             cmp cx, 0
             je find_average
@@ -343,45 +350,77 @@ medianAndAverage PROC
             dec cx
             jmp sumCollecting
 
-    find_average:
-        mov bx, numbersAmount
-        div bx
-        ;виводжу середнє арифметичне
-        print_average:
-            mov bx, 10
-            mov decimalHolder, 0
+    ; множить на -1
+        negate_aux:
+            cmp ax, 0
+            jns stop_negate_aux
+            xor ax, 0FFFFh
+            add ax, 01B
+            mov negated, 1
+            jmp stop_negate_aux
 
-            average_loop:
-                mov dx, 0
-                div bx
+        stop_negate_aux:
+            ret
 
-                mov decimalHolder, ax
-                mov ax, 0
-                mov ah, 02h
-                add dx, '0'
-                int 21h
-                mov ax, decimalHolder
-                cmp ax, 0
-                je end_average_loop
+        find_average:
+            call negate_aux
+            mov bx, numbersAmount
+            div bx
+            
+            mov bx, 0
+            mov bl, negated
+            cmp bl, 1
+            jne print_average
+            mov negated, 0
+            xor ax, 0FFFFh
+            add ax, 01B
 
-                mov dx, ax
-                mov ax, bx
+            ;виводжу середнє арифметичне
+            print_average:
                 mov bx, 10
-                mul bx
-                mov bx, ax
-                mov ax, dx
-                jmp average_loop
-
-            end_average_loop:
-                mov ax, 0
-                mov dx, 0
+                mov decimalHolder, 0
+                cmp ax, 0
+                jns average_loop
+                xor ax, 0FFFFh
+                add ax, 01B
+                push ax
                 mov ax, 0
                 mov ah, 02h
-                mov dx, 13
+                mov dl, '-'
                 int 21h
-                mov dl, 10
-                int 21h
-                jmp end_median_and_average            
+                pop ax
+
+                average_loop:
+                    mov dx, 0
+                    div bx
+
+                    mov decimalHolder, ax
+                    mov ax, 0
+                    mov ah, 02h
+                    add dx, '0'
+                    int 21h
+                    mov ax, decimalHolder
+                    cmp ax, 0
+                    je end_average_loop
+
+                    mov dx, ax
+                    mov ax, bx
+                    mov bx, 10
+                    mul bx
+                    mov bx, ax
+                    mov ax, dx
+                    jmp average_loop
+
+                end_average_loop:
+                    mov ax, 0
+                    mov dx, 0
+                    mov ax, 0
+                    mov ah, 02h
+                    mov dx, 13
+                    int 21h
+                    mov dl, 10
+                    int 21h
+                    jmp end_median_and_average            
 
     end_median_and_average:
         push returnIndex
