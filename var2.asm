@@ -1,9 +1,11 @@
 .model small
+.386
 .stack 40000
 
 .data
 numbers dw 10000 dup(?)          ;масив із числами
 numbersAmount dw ?              ;кількість чисел у масиві
+sum dd 0
 negated db 0
 digitsRead dw 0                 ;кількість цифр у числі
 numsRead dw 0                   ;кількість зчитаних з файлу чисел
@@ -286,6 +288,7 @@ medianAndAverage PROC
     mov ax, 0
     mov bx, 0
     mov dx, 0
+    mov digitsRead, 0
 
     median:
         ;ділю довжину масиву навпіл і множу на 2, щоб дістатсь середини(якщо непарне - середина, якщо парне - правий елемент)
@@ -296,33 +299,9 @@ medianAndAverage PROC
         mul bx
         add si, ax
         mov ax, [si]
-        ;виводжу медіану
-        print_median:
-            mov bx, 10
-            mov decimalHolder, 0
+        call print_num
 
-            median_loop:
-                mov dx, 0
-                div bx
-
-                mov decimalHolder, ax
-                mov ax, 0
-                mov ah, 02h
-                add dx, '0'
-                int 21h
-                mov ax, decimalHolder
-                cmp ax, 0
-                je end_median_loop
-
-                mov dx, ax
-                mov ax, bx
-                mov bx, 10
-                mul bx
-                mov bx, ax
-                mov ax, dx
-                jmp median_loop
-
-            end_median_loop:
+            end_median:
                 mov ax, 0
                 mov ah, 02h
                 mov dx, 13
@@ -336,95 +315,109 @@ medianAndAverage PROC
 
     average:
         lea si, numbers
+        mov dx, 0
         mov ax, 0
         mov cx, numbersAmount
-        ;обраховую суму усіх елемнтів масиву        UNDER WORK
+        jmp sumCollecting
+
+        ;обраховую суму усіх елемнтів масиву
         sumCollecting:
-            cmp cx, 0
-            je find_average
-            mov dx, 0
-            mov bx, [si]
+            mov ax, [si]
             add si, 2
-            add ax, bx
-            adc dx, 0
-            dec cx
-            jmp sumCollecting
-
-    ; множить на -1
-        negate_aux:
             cmp ax, 0
-            jns stop_negate_aux
+            js word_with_negative
+            add sum, eax
+            loop sumCollecting
+            jmp find_average
+        ;якщо число від'ємне, то роблю його від'ємним у 32 бітному знаковому форматі
+        word_with_negative:
             xor ax, 0FFFFh
-            add ax, 01B
-            mov negated, 1
-            jmp stop_negate_aux
+            inc ax
+            mov ebx, eax
+            xor ebx, 0FFFFFFFFh
+            inc ebx
+            add sum, ebx
+            mov eax, 0
+            mov ebx, 0
+            loop sumCollecting
+            jmp find_average
 
-        stop_negate_aux:
-            ret
+            find_average:
+                mov eax, sum
+                mov bx, numbersAmount
+                div bx
+                call print_num
 
-        find_average:
-            call negate_aux
-            mov bx, numbersAmount
-            div bx
-            
-            mov bx, 0
-            mov bl, negated
-            cmp bl, 1
-            jne print_average
-            mov negated, 0
-            xor ax, 0FFFFh
-            add ax, 01B
-
-            ;виводжу середнє арифметичне
-            print_average:
-                mov bx, 10
-                mov decimalHolder, 0
-                cmp ax, 0
-                jns average_loop
-                xor ax, 0FFFFh
-                add ax, 01B
-                push ax
+            end_average:
+                mov dx, 0
                 mov ax, 0
                 mov ah, 02h
-                mov dl, '-'
+                mov dl, 13
                 int 21h
-                pop ax
-
-                average_loop:
-                    mov dx, 0
-                    div bx
-
-                    mov decimalHolder, ax
-                    mov ax, 0
-                    mov ah, 02h
-                    add dx, '0'
-                    int 21h
-                    mov ax, decimalHolder
-                    cmp ax, 0
-                    je end_average_loop
-
-                    mov dx, ax
-                    mov ax, bx
-                    mov bx, 10
-                    mul bx
-                    mov bx, ax
-                    mov ax, dx
-                    jmp average_loop
-
-                end_average_loop:
-                    mov ax, 0
-                    mov dx, 0
-                    mov ax, 0
-                    mov ah, 02h
-                    mov dx, 13
-                    int 21h
-                    mov dl, 10
-                    int 21h
-                    jmp end_median_and_average            
+                mov dl, 10
+                int 21h
+                jmp end_median_and_average            
 
     end_median_and_average:
         push returnIndex
         ret
+
+    print_num:
+        mov digitsRead, 0
+        cmp ax, 0
+        js sign_minus
+        jmp print_start
+        ;якщо від'ємне, то виводжу мінус
+        sign_minus:
+            mov cx, ax
+            mov ax, 0
+            mov ah, 02h
+            mov dl, '-'
+            int 21h
+            mov ax, cx
+            xor ax, 0FFFFh
+            add ax, 1B
+            jmp print_start
+
+        ;виводжу число(ділю на 10, потім частку ділю на 10 і т.д.)
+        print_start:
+            mov bx, 10
+            mov dx, 0
+            div bx
+            push dx
+            inc digitsRead
+            cmp ax, 0
+            jne get_digits     
+            jmp print_by_digits_init
+
+            get_digits:
+                mov dx, 0
+                div bx
+
+                push dx
+                inc digitsRead
+
+                cmp ax, 0
+                je print_by_digits_init
+
+                jmp get_digits
+
+            print_by_digits_init:
+                mov ah, 02h
+                jmp print_by_digits
+
+            print_by_digits:
+                cmp digitsRead, 0
+                je end_print_num
+
+                pop dx
+                dec digitsRead
+                add dl, '0'
+                int 21h
+                jmp print_by_digits
+
+        end_print_num:
+            ret
 medianAndAverage ENDP
 
 ;завершення програми
